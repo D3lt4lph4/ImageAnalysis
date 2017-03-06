@@ -1,6 +1,6 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include "opencv2/imgproc/imgproc.hpp"
+#include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/ml/ml.hpp>
 #include <iostream>
 #include <string>
@@ -44,8 +44,6 @@ int main(int argc, char *argv[]) {
 
   Mat test = imread("Images/Test/Entering/lc-00352.png",CV_LOAD_IMAGE_COLOR);
 
-
-  int rows, cols;
   float number =0;
 
 
@@ -119,15 +117,15 @@ bool detectTrain(Mat image) {
   Mat imageGray, maskedImageGray, reshapedImage;
   Mat maskZoneA = imread("Images/Masks/maskZoneA.png",CV_LOAD_IMAGE_GRAYSCALE);
 
-  CvSVM SVMTrain;
+  Ptr<ml::SVM> SVMTrain = ml::SVM::create();
   float svmResult;
 
   cvtColor(image, imageGray, CV_BGR2GRAY);
   imageGray.copyTo(maskedImageGray, maskZoneA);
-  reshapedImage = maskedImageGray.reshape(1,1);
+  reshapedImage = maskedImageGray.reshape(1);
   reshapedImage.convertTo(reshapedImage, CV_32F);
-  SVMTrain.load("Models/trainModel.xml");
-  svmResult = SVMTrain.predict(reshapedImage, false);
+  SVMTrain->load("Models/trainModel3.2.xml");
+  svmResult = SVMTrain->predict(reshapedImage);
   if (svmResult == 1) {
     return true;
   }
@@ -262,7 +260,7 @@ void detectCar(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool *isTrain) 
       minEnclosingCircle(Mat(poly),center,radius);
       if (((PI *radius *radius) / contourArea(poly)) < 8 && contourArea(poly) > 800) {
 
-        point = Point(mom.m10/mom.m00,mom.m01/mom.m00);
+        point = Point(static_cast<int>(mom.m10/mom.m00),static_cast<int>(mom.m01/mom.m00));
         if (maskZoneB.at<uchar>(point.y,point.x) == 255 && !*isOnB) {
           *isOnB = true;
         }
@@ -299,7 +297,7 @@ Mat getThresholdedImage(Mat image, int lowThreshold, int highThreshold, double s
   int cLog;
 
   minMaxLoc(image, &min,&max);
-  cLog = 255 / log(sigma + max);
+  cLog = static_cast<int>(255 / log(sigma + max));
   image = 1+image;
   image.convertTo(image,CV_32F);
   log(image,image);

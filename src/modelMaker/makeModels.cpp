@@ -7,8 +7,9 @@
 #include <string>
 
 using namespace cv;
+using namespace std;
 
-void loadData(string path, vector<Mat> &data, vector<float> &label, float labelInt);
+void loadData(string path, vector<Mat> &data, vector<int> &label, int labelInt);
 
 int main(int argc, char *argv[]) {
 
@@ -24,12 +25,12 @@ int main(int argc, char *argv[]) {
   cv::String tT("Images/Test/Train/*.png");
 
   Mat maskZoneA = imread("Images/Masks/maskZoneA.png",CV_LOAD_IMAGE_GRAYSCALE), gray, maskedImage, reshapedImage;
-  vector<float> labels;
+  vector<int> labels;
 
   vector<Mat> data, vectorDataTrain, vectorDataEmpty;
 
-  CvSVM SVM;
-  CvSVMParams params;
+  Ptr<ml::SVM> SVM = ml::SVM::create();
+ 
 
   Mat im , image,canny_output, original, yolo, yolo2,dst;
   Mat imTest, matTest;
@@ -62,15 +63,17 @@ int main(int argc, char *argv[]) {
   }
 
   // Set up SVM's parameters
-  params.svm_type    = CvSVM::C_SVC;
-  params.kernel_type = CvSVM::LINEAR;
+  SVM->setType(ml::SVM::C_SVC);
+  SVM->setKernel(ml::SVM::LINEAR);
 
+  Ptr<ml::TrainData> trainingData = cv::ml::TrainData::create(trainingDataSetTrain, ml::ROW_SAMPLE, labelSetTrain);
   // Train the SVM
-  SVM.train_auto(trainingDataSetTrain, labelSetTrain, Mat(), Mat(), params);
-  SVM.save("Models/trainModel.xml");
+
+  SVM->trainAuto(trainingData);
+  SVM->save("Models/trainModel3.2.xml");
 }
 
-void loadData(string path, vector<Mat> &data, vector<float> &labels, float labelInt) {
+void loadData(string path, vector<Mat> &data, vector<int> &labels, int labelInt) {
 
   vector<cv::String> fn;
   Mat image;
