@@ -5,23 +5,26 @@
 #include <opencv2/ml/ml.hpp>
 #include <iostream>
 #include <string>
+#include <filesystem>
 
 using namespace cv;
+using namespace std;
+using namespace std::tr2::sys;
 
 void loadData(string path, vector<Mat> &data, vector<float> &label, float labelInt);
 
 int main(int argc, char *argv[]) {
 
-  cv::String trEm("Images/Training/Empty/*.png");
-  cv::String trOT("Images/Training/OnTrack/*.png");
-  cv::String trT("Images/Training/Train/*.png");
+  cv::String trEm("Images/Training/Empty");
+  cv::String trOT("Images/Training/OnTrack");
+  cv::String trT("Images/Training/Train");
 
-  cv::String tB("Images/Test/Barrier/*.png");
-  cv::String tEm("Images/Test/Empty/*.png");
-  cv::String tEn("Images/Test/Entering/*.png");
-  cv::String tL("Images/Test/Leaving/*.png");
-  cv::String tOT("Images/Test/OnTrack/*.png");
-  cv::String tT("Images/Test/Train/*.png");
+  cv::String tB("Images/Test/Barrier");
+  cv::String tEm("Images/Test/Empty");
+  cv::String tEn("Images/Test/Entering");
+  cv::String tL("Images/Test/Leaving");
+  cv::String tOT("Images/Test/OnTrack");
+  cv::String tT("Images/Test/Train");
 
   Mat maskZoneA = imread("Images/Masks/maskZoneA.png",CV_LOAD_IMAGE_GRAYSCALE), gray, maskedImage, reshapedImage;
   vector<float> labels;
@@ -75,13 +78,21 @@ void loadData(string path, vector<Mat> &data, vector<float> &labels, float label
   vector<cv::String> fn;
   Mat image;
 
-  cv::glob(path,fn,false);
+  for (recursive_directory_iterator i(path), end; i != end; ++i)
+    if (!is_directory(i->path())) {
+      image = cv::imread(i->path().string());
+      if (image.empty()) continue;
+      data.push_back(image);
+      labels.push_back(labelInt);
+    }
 
-  for (size_t k=0; k<fn.size(); ++k)
-  {
-    image = cv::imread(fn[k]);
-    if (image.empty()) continue;
-    data.push_back(image);
-    labels.push_back(labelInt);
-  }
+  //cv::glob(path,fn,false);
+
+  //for (size_t k=0; k<fn.size(); ++k)
+  //{
+  //  image = cv::imread(fn[k]);
+  //  if (image.empty()) continue;
+  //  data.push_back(image);
+  //  labels.push_back(labelInt);
+  //}
 }

@@ -20,7 +20,7 @@ int main(int argc, char *argv[]) {
 
   string file = argv[1];
 
-  vector<String> fileName;
+  static vector<String> fileName;
 
   vector<Mat> data;
 
@@ -44,29 +44,23 @@ int main(int argc, char *argv[]) {
 
   Mat test = imread("Images/Test/Entering/lc-00352.png",CV_LOAD_IMAGE_COLOR);
 
-
-  int rows, cols;
   float number =0;
 
-
   //Loading all the images to be tested
-  glob(argv[1],fileName,false);
-
-  for (size_t k=0; k<fileName.size(); ++k)
-  {
-    image = imread(fileName[k]);
+  for (int i = 1; i < argc; i++) {
+    image = imread(argv[i]);
     if (image.empty()) continue;
     data.push_back(image);
   }
 
-  numberOfImage = data.size();
+  numberOfImage = argc - 1;
 
   for (size_t imNumber = 0; imNumber < numberOfImage; imNumber++) {
     std::cout << "New Image :" << std::endl;
 
     //Train Detection
     isTrain = detectTrain(data[imNumber]);
-
+    
     //Car detection
     detectCar(data[imNumber], &isOnA, &isOnB, &isOnC, &isTrain);
 
@@ -79,25 +73,23 @@ int main(int argc, char *argv[]) {
     //If nothing detected then must be empty
     if (!isOnA && !isOnB && !isOnC && !isBarrier && !isTrain) {
       isEmpty = true;
-      cout << fileName[imNumber] << " : event 0" << endl;
+      cout << argv[imNumber+1] << " : event 0" << endl;
     }
     if (isOnA) {
-      cout << fileName[imNumber] << " : event 1" << endl;
-      number++;
-      imshow("image", data[imNumber]);
-      waitKey(0);
+      cout << argv[imNumber + 1] << " : event 1" << endl;
     }
     if (isOnB) {
-      cout << fileName[imNumber] << " : event 2" << endl;
+      cout << argv[imNumber + 1] << " : event 2" << endl;
     }
     if (isOnC) {
-      cout << fileName[imNumber] << " : event 3" << endl;
+      cout << argv[imNumber + 1] << " : event 3" << endl;
     }
     if (isBarrier) {
-      cout << fileName[imNumber] << " : event 4" << endl;
+      cout << argv[imNumber + 1] << " : event 4" << endl;
     }
     if (isTrain) {
-      cout << fileName[imNumber] << " : event 5" << endl;
+      cout << argv[imNumber + 1] << " : event 5" << endl;
+      number++;
     }
 
     isEmpty = false;
@@ -107,6 +99,8 @@ int main(int argc, char *argv[]) {
     isBarrier = false;
     isTrain = false;
     noCars = true;
+ /*   imshow("contour", data[imNumber]);
+    waitKey(0);*/
   }
   std::cout << "well found percentage :" << number / numberOfImage * 100 << std::endl;
   std::cout << "detected :" << number << std::endl;
@@ -135,11 +129,15 @@ bool detectTrain(Mat image) {
 }
 
 bool detectBarrier(Mat image, bool isTrain) {
-  // Apply Canny algorithm
-  Mat imageGray, contoursB;
+  
+  if (isTrain) {
+    return true;
+  }
+  Mat imageGray;
+  Mat contoursB;
   Mat maskBarrier = imread("Images/Masks/maskBarrier.png",CV_LOAD_IMAGE_GRAYSCALE);
 
-  std::vector<Vec4i> lines;
+  std::vector<Vec4i> lines(200);
 
   Point startBarrier = Point(23, 265);
   int pixelNumber;
@@ -152,35 +150,17 @@ bool detectBarrier(Mat image, bool isTrain) {
   HoughLinesP(contoursB, lines, 1, PI/180, 10, 100, 20);
   circle(imageGray, startBarrier, 2, Scalar(0),2);
 
-  if (!isTrain) {
-    for(int i = 0 ; i < lines.size() ; i++){
-      pixelNumber = 190;
-      do {
-        startBarrier.y = pixelNumber;
-        if (norm(startBarrier - Point(lines[i][0], lines[i][1])) < 20 && (lines[i][2] - lines[i][0]) > 25) {
-          return true;
-        }
-        pixelNumber++;
-      } while(pixelNumber < 285);
-    }
-  } else {
-    for(int i = 0 ; i < lines.size() ; i++){
-      startBarrier.y = 278;
-      if (norm(startBarrier - Point(lines[i][0], lines[i][1])) < 4 && (lines[i][2] - lines[i][0]) > 25) {
+
+  for (int i = 0; i < static_cast<int>(lines.size()); i++) {
+    pixelNumber = 190;
+    do {
+      startBarrier.y = pixelNumber;
+      if (norm(startBarrier - Point(lines[i][0], lines[i][1])) < 20 && (lines[i][2] - lines[i][0]) > 25) {
         return true;
       }
-    }
+      pixelNumber++;
+    } while (pixelNumber < 285);
   }
-  // finder.drawDetectedLines(imageGray);
-  // Scalar color=Scalar(255,255,255))
-  // std::vector<Vec4i>::const_iterator it2= lines.begin();
-  // while (it2!=lines.end()) {
-  //   Point pt1((*it2)[0],(*it2)[1]);
-  //   Point pt2((*it2)[2],(*it2)[3]);
-  //   line(imageGray, pt1, pt2, color);
-  //   ++it2;
-  // }
-  // imshow("Barrier",imageGray);
   return false;
 }
 
@@ -192,17 +172,21 @@ void detectCar(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool *isTrain) 
   Mat maskZoneA = imread("Images/Masks/maskZoneA.png",CV_LOAD_IMAGE_GRAYSCALE);
   Mat maskZoneB = imread("Images/Masks/maskZoneB.png",CV_LOAD_IMAGE_GRAYSCALE);
   Mat maskZoneC = imread("Images/Masks/maskZoneC.png",CV_LOAD_IMAGE_GRAYSCALE);
+  Mat maskTrain = imread("Images/Masks/maskTrain.png", CV_LOAD_IMAGE_GRAYSCALE);
 
   Mat carImage, carGray, emptySourceGray, maskLettersInv, carGrayWhite, cannyOutput, cannyOutputWhite, carGrayTresholded, carGrayWhiteTresholded;
 
-  vector<vector<Point>> contoursCar, contoursCarWhite, contoursCarFinal;
-  vector<Point> poly;
+  static vector<vector<Point>> contoursCar, contoursCarSelected, contoursCarWhite, contoursCarFinal;
+
+  vector<Point> poly(200);
 
   int thresh = 75, cmin= 200, cmax = 2000;
 
   vector<vector<Point>>::iterator cIt;
   vector<Point> momentsCars;
 
+  float radius;
+  Point2f center;
   Point point;
 
   cvtColor(emptySource, emptySourceGray, CV_BGR2GRAY);
@@ -231,49 +215,49 @@ void detectCar(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool *isTrain) 
   carGrayWhiteTresholded = carGrayWhiteTresholded - rail;
   bitwise_not(carGrayWhiteTresholded,carGrayWhiteTresholded);
   carGrayWhiteTresholded += maskLettersInv;
-
   //Apply the canny algorithm
   Canny(carGrayTresholded, cannyOutput, thresh, thresh*2, 5);
   Canny(carGrayWhiteTresholded, cannyOutputWhite, thresh, thresh*2, 5);
-
   findContours(cannyOutput, contoursCar, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
   findContours(cannyOutputWhite, contoursCarWhite, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
-
   Mat result(image.size(),CV_8U,Scalar(255));
   for (cIt = contoursCar.begin(); cIt < contoursCar.end(); cIt++) {
-    if (cIt->size() < cmin || cIt->size() > cmax) {
-      contoursCar.erase(cIt);
-      cIt--;
+    if (static_cast<int>(cIt->size()) > cmin && static_cast<int>(cIt->size()) < cmax) {
+      contoursCarSelected.push_back(*cIt);
     }
   }
   for (cIt = contoursCarWhite.begin(); cIt < contoursCarWhite.end(); cIt++) {
-    if (cIt->size() > cmin && cIt->size() < cmax) {
-      contoursCar.push_back(*cIt);
+    if (static_cast<int>(cIt->size()) > cmin && static_cast<int>(cIt->size()) < cmax) {
+      contoursCarSelected.push_back(*cIt);
     }
   }
-
-  for (size_t i = 0; i < contoursCar.size(); i++) {
-    convexHull(Mat(contoursCar[i]),poly);
+  for (size_t i = 0; i < contoursCarSelected.size(); i++) {
+    convexHull(Mat(contoursCarSelected[i]),poly);
     contoursCarFinal.push_back(poly);
     Moments mom= moments(Mat(poly));
     if (mom.m00 > 0) {
-      float radius;
-      Point2f center;
       minEnclosingCircle(Mat(poly),center,radius);
       if (((PI *radius *radius) / contourArea(poly)) < 8 && contourArea(poly) > 800) {
 
-        point = Point(mom.m10/mom.m00,mom.m01/mom.m00);
-        if (maskZoneB.at<uchar>(point.y,point.x) == 255 && !*isOnB) {
-          *isOnB = true;
-        }
+        point = Point(static_cast<int>(mom.m10/mom.m00), static_cast<int>(mom.m01/mom.m00));
+        
 
         if (!*isTrain) {
+          if (maskZoneB.at<uchar>(point.y, point.x) == 255 && !*isOnB) {
+            *isOnB = true;
+          }
+
           if (maskZoneA.at<uchar>(point.y,point.x) == 255 && !*isOnA) {
             *isOnA = true;
           }
 
           if (maskZoneC.at<uchar>(point.y,point.x) == 255 && !*isOnC) {
             *isOnC = true;
+          }
+        }
+        else {
+          if (maskTrain.at<uchar>(point.y, point.x) == 255 && !*isOnC) {
+            *isOnB = true;
           }
         }
       } else {
@@ -285,13 +269,17 @@ void detectCar(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool *isTrain) 
       contoursCarFinal.pop_back();
     }
     if (!*isOnA && !*isTrain) {
-      for (size_t j = 0; j < contoursCar[i].size(); j++) {
-        if (maskZoneA.at<uchar>(contoursCar[i][j].y,contoursCar[i][j].x) == 255 && !*isOnA) {
+      for (size_t j = 0; j < contoursCarSelected[i].size(); j++) {
+        if (maskZoneA.at<uchar>(contoursCarSelected[i][j].y, contoursCarSelected[i][j].x) == 255 && !*isOnA) {
           *isOnA = true;
         }
       }
     }
+
   }
+  //drawContours(result, contoursCarSelected, -1, Scalar(0), 2);
+  //imshow("contour", result);
+  //waitKey(0);
 }
 
 Mat getThresholdedImage(Mat image, int lowThreshold, int highThreshold, double sigma) {
@@ -299,7 +287,7 @@ Mat getThresholdedImage(Mat image, int lowThreshold, int highThreshold, double s
   int cLog;
 
   minMaxLoc(image, &min,&max);
-  cLog = 255 / log(sigma + max);
+  cLog = static_cast<int>(255 / log(sigma + max));
   image = 1+image;
   image.convertTo(image,CV_32F);
   log(image,image);
