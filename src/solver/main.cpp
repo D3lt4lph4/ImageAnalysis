@@ -18,8 +18,12 @@ Mat getThresholdedImage(Mat image, int lowThreshold, int highThreshold, double s
 int main(int argc, char *argv[]) {
 
   vector<Mat> data;
+  
+  Mat image;
 
   bool isEmpty, isOnA, isOnB, isOnC, isBarrier, isTrain;
+  
+  int number = 0;
 
   size_t numberOfImage;
 
