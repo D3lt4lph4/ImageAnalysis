@@ -49,15 +49,17 @@ int main(int argc, char *argv[]) {
     std::cout << "New Image :" << std::endl;
 
     //Train Detection
+    cout << "before" << endl;
     isTrain = detectTrain(data[imNumber]);
 
-    //Car detection
-    //detectCarPedestrian(data[imNumber], &isOnA, &isOnB, &isOnC, &isTrain);
-
     cout << "before" << endl;
+    //Car detection
+    detectCarPedestrian(data[imNumber], &isOnA, &isOnB, &isOnC, &isTrain);
+    cout << "after" << endl;
+
     //Barrier detection
     isBarrier = detectBarrier(data[imNumber], isTrain);
-    cout << "after" << endl;
+ 
     //If nothing detected then must be empty
     if (!isOnA && !isOnB && !isOnC && !isBarrier && !isTrain) {
       isEmpty = true;
@@ -151,6 +153,7 @@ void detectCarPedestrian(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool 
   Mat maskZoneC = imread("Images/Masks/maskZoneC.png",CV_LOAD_IMAGE_GRAYSCALE);
   Mat maskTrain = imread("Images/Masks/maskTrain.png", CV_LOAD_IMAGE_GRAYSCALE);
   Mat maskPedestrian = imread("Images/Masks/maskPedestrian.png", CV_LOAD_IMAGE_GRAYSCALE);
+  Mat result(image.size(), CV_8U, Scalar(255));
 
   Mat carImage, thresholdedImage, carGray, emptySourceGray, maskLettersInv, carGrayWhite, cannyOutput, cannyOutputWhite, carGrayTresholded, carGrayWhiteTresholded;
 
@@ -199,19 +202,14 @@ void detectCarPedestrian(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool 
 
   bitwise_and(carGrayWhiteTresholded, carGrayTresholded, thresholdedImage);
 
-  morphologyEx(carGrayTresholded, carGrayTresholded, MORPH_OPEN, element);
-  morphologyEx(carGrayWhiteTresholded, carGrayWhiteTresholded, MORPH_OPEN, element);
   morphologyEx(thresholdedImage, thresholdedImage, MORPH_OPEN, element);
-
 
   //Apply the canny algorithm
   Canny(thresholdedImage, cannyOutput, thresh, thresh*2, 5);
   findContours(cannyOutput, contoursCar, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
 
-  Mat result(image.size(),CV_8U,Scalar(255));
-  result.setTo(Scalar(255));
   for (cIt = contoursCar.begin(); cIt < contoursCar.end(); cIt++) {
-    if (static_cast<int>(cIt->size()) > cmin && static_cast<int>(cIt->size()) < cmax) {
+    if (static_cast<int>(cIt->size()) > cmin) {
       contoursCarSelected.push_back(*cIt);
     }
     if (static_cast<int>(cIt->size()) > cminP && static_cast<int>(cIt->size()) < cmaxP) {
@@ -225,7 +223,7 @@ void detectCarPedestrian(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool 
     Moments mom= moments(Mat(poly));
     if (mom.m00 > 0) {
       minEnclosingCircle(Mat(poly),center,radius);
-      if (((PI *radius *radius) / contourArea(poly)) < 8 && contourArea(poly) > 800) {
+      if (((PI *radius *radius) / contourArea(poly)) < 6 && contourArea(poly) > 800) {
         point = Point(static_cast<int>(mom.m10/mom.m00), static_cast<int>(mom.m01/mom.m00));
         if (!*isTrain) {
           if (maskZoneB.at<uchar>(point.y, point.x) == 255 && !*isOnB) {
@@ -251,22 +249,15 @@ void detectCarPedestrian(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool 
     } else {
       contoursCarFinal.pop_back();
     }
-    if (!*isOnA && !*isTrain) {
-      for (size_t j = 0; j < contoursCarSelected[i].size(); j++) {
-        if (maskZoneA.at<uchar>(contoursCarSelected[i][j].y, contoursCarSelected[i][j].x) == 255 && !*isOnA) {
-          *isOnA = true;
-        }
-      }
-    }
   }
-  drawContours(result, contoursCarFinal, -1, Scalar(0), 2, 8);
+
   for (size_t i = 0; i < contourPedestrian.size(); i++) {
     convexHull(Mat(contourPedestrian[i]), polyPedestrian);
     contourPedestrianFinal.push_back(polyPedestrian);
     Moments mom = moments(Mat(polyPedestrian));
     if (mom.m00 > 0) {
       minEnclosingCircle(Mat(polyPedestrian), center, radius);
-      if (((PI *radius *radius) / contourArea(polyPedestrian)) < 8 && contourArea(polyPedestrian) > 400) {
+      if (((PI *radius *radius) / contourArea(polyPedestrian)) < 4 && contourArea(polyPedestrian) > 400) {
         point = Point(static_cast<int>(mom.m10 / mom.m00), static_cast<int>(mom.m01 / mom.m00));
         if (!*isTrain) {
           if (maskPedestrian.at<uchar>(point.y, point.x) == 255 && !*isOnA) {
@@ -277,20 +268,10 @@ void detectCarPedestrian(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool 
       else {
         contourPedestrianFinal.pop_back();
       }
-      circle(result, point, 2, Scalar(0), 2); // to be removed
     } else {
       contourPedestrianFinal.pop_back();
     }
-    if (!*isOnA && !*isTrain) {
-      for (size_t j = 0; j < contourPedestrianFinal[i].size(); j++) {
-        if (maskZoneA.at<uchar>(contourPedestrianFinal[i][j].y, contourPedestrianFinal[i][j].x) == 255 && !*isOnA) {
-          *isOnA = true;
-        }
-      }
-    }
   }
-  cout << contoursCarFinal.size() << endl;
-  imshow("contour", result);
 }
 
 Mat getThresholdedImage(Mat image, int lowThreshold, int highThreshold, double sigma) {
