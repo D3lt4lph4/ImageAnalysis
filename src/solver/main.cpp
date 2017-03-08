@@ -12,9 +12,8 @@ using namespace std;
 
 bool detectTrain(Mat image);
 bool detectBarrier(Mat image, bool isTrain);
-void detectCar(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool *isTrain);
+void detectCarPedestrian(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool *isTrain);
 Mat getThresholdedImage(Mat image, int lowThreshold, int highThreshold, double sigma);
-bool detectPedestrian(Mat image);
 
 int main(int argc, char *argv[]) {
 
@@ -62,10 +61,7 @@ int main(int argc, char *argv[]) {
     isTrain = detectTrain(data[imNumber]);
     
     //Car detection
-    detectCar(data[imNumber], &isOnA, &isOnB, &isOnC, &isTrain);
-
-    //Pedestrian detection
-
+    detectCarPedestrian(data[imNumber], &isOnA, &isOnB, &isOnC, &isTrain);
 
     //Barrier detection
     isBarrier = detectBarrier(data[imNumber], isTrain);
@@ -164,7 +160,7 @@ bool detectBarrier(Mat image, bool isTrain) {
   return false;
 }
 
-void detectCar(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool *isTrain) {
+void detectCarPedestrian(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool *isTrain) {
 
   Mat maskLetters = imread("Images/Masks/maskLetters.png",CV_LOAD_IMAGE_GRAYSCALE);
   Mat emptySource = imread("Images/Test/Empty/lc-00010.png",CV_LOAD_IMAGE_COLOR);
@@ -173,14 +169,15 @@ void detectCar(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool *isTrain) 
   Mat maskZoneB = imread("Images/Masks/maskZoneB.png",CV_LOAD_IMAGE_GRAYSCALE);
   Mat maskZoneC = imread("Images/Masks/maskZoneC.png",CV_LOAD_IMAGE_GRAYSCALE);
   Mat maskTrain = imread("Images/Masks/maskTrain.png", CV_LOAD_IMAGE_GRAYSCALE);
+  Mat maskPedestrian = imread("Images/Test/Mask/maskPedestrian.png", CV_LOAD_IMAGE_COLOR);
 
-  Mat carImage, carGray, emptySourceGray, maskLettersInv, carGrayWhite, cannyOutput, cannyOutputWhite, carGrayTresholded, carGrayWhiteTresholded;
+  Mat carImage, thresholdedImage, carGray, emptySourceGray, maskLettersInv, carGrayWhite, cannyOutput, cannyOutputWhite, carGrayTresholded, carGrayWhiteTresholded;
 
-  static vector<vector<Point>> contoursCar, contoursCarSelected, contoursCarWhite, contoursCarFinal;
+  static vector<vector<Point>> contoursCar, contoursCarSelected, contoursCarWhite, contoursCarFinal, contourPedestrian, contourPedestrianFinal;
 
-  vector<Point> poly(200);
+  vector<Point> poly(200), polyPedestrian(200);
 
-  int thresh = 75, cmin= 200, cmax = 2000;
+  int thresh = 75, cmin= 200, cmax = 2000, cminP = 150, cmaxP = 800;
 
   vector<vector<Point>>::iterator cIt;
   vector<Point> momentsCars;
@@ -188,6 +185,9 @@ void detectCar(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool *isTrain) 
   float radius;
   Point2f center;
   Point point;
+
+  int morph_elem = 0, morph_size = 5;
+  Mat element = getStructuringElement(morph_elem, Size(2 * morph_size + 1, 2 * morph_size + 1), Point(morph_size, morph_size));
 
   cvtColor(emptySource, emptySourceGray, CV_BGR2GRAY);
   //Getting the inverse of the mask to remove the black part at the top
@@ -210,27 +210,34 @@ void detectCar(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool *isTrain) 
   carGrayWhite = carGrayWhite - emptySourceGray;
 
   //logarithm transform && threshold
-  carGrayWhiteTresholded = getThresholdedImage(carGrayWhite, 190, 255, 1);
+  carGrayWhiteTresholded = getThresholdedImage(carGrayWhite, 200, 255, 1);
   bitwise_and(carGrayWhiteTresholded,maskLetters,carGrayWhiteTresholded);
   carGrayWhiteTresholded = carGrayWhiteTresholded - rail;
   bitwise_not(carGrayWhiteTresholded,carGrayWhiteTresholded);
   carGrayWhiteTresholded += maskLettersInv;
+
+  bitwise_and(carGrayWhiteTresholded, carGrayTresholded, thresholdedImage);
+
+  morphologyEx(carGrayTresholded, carGrayTresholded, MORPH_OPEN, element);
+  morphologyEx(carGrayWhiteTresholded, carGrayWhiteTresholded, MORPH_OPEN, element);
+  morphologyEx(thresholdedImage, thresholdedImage, MORPH_OPEN, element);
+
+  
   //Apply the canny algorithm
-  Canny(carGrayTresholded, cannyOutput, thresh, thresh*2, 5);
-  Canny(carGrayWhiteTresholded, cannyOutputWhite, thresh, thresh*2, 5);
+  Canny(thresholdedImage, cannyOutput, thresh, thresh*2, 5);
   findContours(cannyOutput, contoursCar, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
-  findContours(cannyOutputWhite, contoursCarWhite, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+ 
   Mat result(image.size(),CV_8U,Scalar(255));
+
   for (cIt = contoursCar.begin(); cIt < contoursCar.end(); cIt++) {
     if (static_cast<int>(cIt->size()) > cmin && static_cast<int>(cIt->size()) < cmax) {
       contoursCarSelected.push_back(*cIt);
     }
-  }
-  for (cIt = contoursCarWhite.begin(); cIt < contoursCarWhite.end(); cIt++) {
-    if (static_cast<int>(cIt->size()) > cmin && static_cast<int>(cIt->size()) < cmax) {
-      contoursCarSelected.push_back(*cIt);
+    if (static_cast<int>(cIt->size()) > cminP && static_cast<int>(cIt->size()) < cmaxP) {
+      contourPedestrian.push_back(*cIt);
     }
   }
+
   for (size_t i = 0; i < contoursCarSelected.size(); i++) {
     convexHull(Mat(contoursCarSelected[i]),poly);
     contoursCarFinal.push_back(poly);
@@ -238,10 +245,7 @@ void detectCar(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool *isTrain) 
     if (mom.m00 > 0) {
       minEnclosingCircle(Mat(poly),center,radius);
       if (((PI *radius *radius) / contourArea(poly)) < 8 && contourArea(poly) > 800) {
-
         point = Point(static_cast<int>(mom.m10/mom.m00), static_cast<int>(mom.m01/mom.m00));
-        
-
         if (!*isTrain) {
           if (maskZoneB.at<uchar>(point.y, point.x) == 255 && !*isOnB) {
             *isOnB = true;
@@ -264,7 +268,7 @@ void detectCar(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool *isTrain) 
         contoursCarFinal.pop_back();
       }
       circle(result, point, 2, Scalar(0),2); // to be removed
-      drawContours(result, contoursCarFinal, -1, Scalar(0), 2); // to be removed
+      drawContours(result, contoursCarFinal, -1, Scalar(0), 2);
     } else {
       contoursCarFinal.pop_back();
     }
@@ -275,11 +279,46 @@ void detectCar(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool *isTrain) 
         }
       }
     }
-
   }
-  //drawContours(result, contoursCarSelected, -1, Scalar(0), 2);
-  //imshow("contour", result);
-  //waitKey(0);
+
+  for (size_t i = 0; i < contourPedestrian.size(); i++) {
+    convexHull(Mat(contourPedestrian[i]), polyPedestrian);
+    contourPedestrianFinal.push_back(polyPedestrian);
+    Moments mom = moments(Mat(polyPedestrian));
+    if (mom.m00 > 0) {
+      minEnclosingCircle(Mat(polyPedestrian), center, radius);
+      //if (((PI *radius *radius) / contourArea(polyPedestrian)) < 8 && contourArea(polyPedestrian) > 200) {
+
+        point = Point(static_cast<int>(mom.m10 / mom.m00), static_cast<int>(mom.m01 / mom.m00));
+        if (!*isTrain) {
+          if (maskPedestrian.at<uchar>(point.y, point.x) == 255 && !*isOnA) {
+            *isOnA = true;
+          }
+
+          if (maskZoneC.at<uchar>(point.y, point.x) == 255 && !*isOnC) {
+            *isOnC = true;
+          }
+        }
+      //}
+      //else {
+      //  contourPedestrianFinal.pop_back();
+      //}
+      circle(result, point, 2, Scalar(0), 2); // to be removed
+    }
+    else {
+      contourPedestrianFinal.pop_back();
+    }
+    if (!*isOnA && !*isTrain) {
+      for (size_t j = 0; j < contourPedestrianFinal[i].size(); j++) {
+        if (maskZoneA.at<uchar>(contourPedestrianFinal[i][j].y, contourPedestrianFinal[i][j].x) == 255 && !*isOnA) {
+          *isOnA = true;
+        }
+      }
+    }
+  }
+  cout << "in here" << endl;
+  imshow("contour", result);
+  waitKey(0);
 }
 
 Mat getThresholdedImage(Mat image, int lowThreshold, int highThreshold, double sigma) {
@@ -299,5 +338,16 @@ Mat getThresholdedImage(Mat image, int lowThreshold, int highThreshold, double s
 }
 
 bool detectPedestrian(Mat image) {
+
+  Mat emptySource = imread("Images/Test/Empty/lc-00010.png", CV_LOAD_IMAGE_COLOR);
+ 
+  Mat gray;
+
+  cvtColor(image, gray, CV_BGR2GRAY);
+
+  //gray = gray - rail;
+  //carGrayTresholded = getThresholdedImage(carGray, 200, 255, 1);
+
+  //bitwise_and(carGrayTresholded, maskLetters, carGrayTresholded);
   return true;
 }
