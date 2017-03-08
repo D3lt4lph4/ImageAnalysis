@@ -93,8 +93,9 @@ bool detectTrain(Mat image) {
   float svmResult;
 
   cvtColor(image, imageGray, CV_BGR2GRAY);
-  imageGray.copyTo(maskedImageGray, maskZoneA);
-  reshapedImage = maskedImageGray.reshape(1,1);
+  bitwise_and(imageGray, maskZoneA, imageGray);
+  //imageGray.copyTo(maskedImageGray, maskZoneA);
+  reshapedImage = imageGray.reshape(1,1);
   reshapedImage.convertTo(reshapedImage, CV_32F);
   SVMTrain.load("Models/trainModel.xml");
   svmResult = SVMTrain.predict(reshapedImage, false);
