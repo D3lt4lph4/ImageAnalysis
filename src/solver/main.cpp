@@ -18,11 +18,11 @@ Mat getThresholdedImage(Mat image, int lowThreshold, int highThreshold, double s
 int main(int argc, char *argv[]) {
 
   vector<Mat> data;
-  
+
   Mat image;
 
   bool isEmpty, isOnA, isOnB, isOnC, isBarrier, isTrain;
-  
+
   int number = 0;
 
   size_t numberOfImage;
@@ -98,7 +98,6 @@ bool detectTrain(Mat image) {
 
   cvtColor(image, imageGray, CV_BGR2GRAY);
   bitwise_and(imageGray, maskZoneA, imageGray);
-  //imageGray.copyTo(maskedImageGray, maskZoneA);
   reshapedImage = imageGray.reshape(1,1);
   reshapedImage.convertTo(reshapedImage, CV_32F);
   SVMTrain.load("Models/trainModel.xml");
@@ -114,33 +113,30 @@ bool detectBarrier(Mat image, bool isTrain) {
   if (isTrain) {
     return true;
   }
-  Mat imageGray;
-  Mat contoursB;
+
+  Mat imageGray, contoursB;
   Mat maskBarrier = imread("Images/Masks/maskBarrier.png",CV_LOAD_IMAGE_GRAYSCALE);
 
-  std::vector<Vec4i> lines(200);
+  std::vector<Vec4i> lines(200); //If not on windows, (200) can be removed, if not big enough can cause problems
 
   Point startBarrier = Point(23, 265);
-  int pixelNumber;
 
   cvtColor(image, imageGray, CV_BGR2GRAY);
   bitwise_and(imageGray,maskBarrier,imageGray);
   Canny(imageGray,contoursB,125,350);
 
-  lines.clear();
+  //lines.clear();
   HoughLinesP(contoursB, lines, 1, PI/180, 10, 100, 20);
   circle(imageGray, startBarrier, 2, Scalar(0),2);
 
 
   for (int i = 0; i < static_cast<int>(lines.size()); i++) {
-    pixelNumber = 190;
-    do {
+    for (int pixelNumber = 190; pixelNumber < 285; pixelNumber++) {
       startBarrier.y = pixelNumber;
       if (norm(startBarrier - Point(lines[i][0], lines[i][1])) < 20 && (lines[i][2] - lines[i][0]) > 25) {
         return true;
       }
-      pixelNumber++;
-    } while (pixelNumber < 285);
+    }
   }
   return false;
 }
