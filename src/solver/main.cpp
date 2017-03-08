@@ -17,33 +17,11 @@ Mat getThresholdedImage(Mat image, int lowThreshold, int highThreshold, double s
 
 int main(int argc, char *argv[]) {
 
-  string file = argv[1];
-
-  static vector<String> fileName;
-
   vector<Mat> data;
 
-  //Loading the masks to be used
-  Mat maskZoneA = imread("Images/Masks/maskZoneA.png",CV_LOAD_IMAGE_GRAYSCALE);
-  Mat maskZoneB = imread("Images/Masks/maskZoneB.png",CV_LOAD_IMAGE_GRAYSCALE);
-  Mat maskZoneC = imread("Images/Masks/maskZoneC.png",CV_LOAD_IMAGE_GRAYSCALE);
-  Mat maskLetters = imread("Images/Masks/maskLetters.png",CV_LOAD_IMAGE_GRAYSCALE);
-  Mat emptySource = imread("Images/Test/Empty/lc-00010.png",CV_LOAD_IMAGE_COLOR);
-
-
-  bool isEmpty = false, isOnA = false, isOnB = false, isOnC = false, isBarrier = false, isTrain = false, noCars = true;
-
+  bool isEmpty, isOnA, isOnB, isOnC, isBarrier, isTrain;
 
   size_t numberOfImage;
-
-  vector<float> labels;
-  vector<Mat> vectorData;
-
-  Mat im, gray, gray2,image_f, maskedImage, image,temp;
-
-  Mat test = imread("Images/Test/Entering/lc-00352.png",CV_LOAD_IMAGE_COLOR);
-
-  float number =0;
 
   //Loading all the images to be tested
   for (int i = 1; i < argc; i++) {
@@ -55,11 +33,20 @@ int main(int argc, char *argv[]) {
   numberOfImage = argc - 1;
 
   for (size_t imNumber = 0; imNumber < numberOfImage; imNumber++) {
+
+    //Setting everything for the image;
+    isEmpty = false;
+    isOnA = false;
+    isOnB = false;
+    isOnC = false;
+    isBarrier = false;
+    isTrain = false;
+
     std::cout << "New Image :" << std::endl;
 
     //Train Detection
     isTrain = detectTrain(data[imNumber]);
-    
+
     //Car detection
     detectCarPedestrian(data[imNumber], &isOnA, &isOnB, &isOnC, &isTrain);
 
@@ -88,13 +75,6 @@ int main(int argc, char *argv[]) {
       number++;
     }
 
-    isEmpty = false;
-    isOnA = false;
-    isOnB = false;
-    isOnC = false;
-    isBarrier = false;
-    isTrain = false;
-    noCars = true;
     imshow("image", data[imNumber]);
     waitKey(0);
   }
@@ -125,7 +105,7 @@ bool detectTrain(Mat image) {
 }
 
 bool detectBarrier(Mat image, bool isTrain) {
-  
+
   if (isTrain) {
     return true;
   }
@@ -222,11 +202,11 @@ void detectCarPedestrian(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool 
   morphologyEx(carGrayWhiteTresholded, carGrayWhiteTresholded, MORPH_OPEN, element);
   morphologyEx(thresholdedImage, thresholdedImage, MORPH_OPEN, element);
 
-  
+
   //Apply the canny algorithm
   Canny(thresholdedImage, cannyOutput, thresh, thresh*2, 5);
   findContours(cannyOutput, contoursCar, CV_RETR_LIST, CV_CHAIN_APPROX_NONE);
- 
+
   Mat result(image.size(),CV_8U,Scalar(255));
   result.setTo(Scalar(255));
   for (cIt = contoursCar.begin(); cIt < contoursCar.end(); cIt++) {
