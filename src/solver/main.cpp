@@ -52,11 +52,12 @@ int main(int argc, char *argv[]) {
     isTrain = detectTrain(data[imNumber]);
 
     //Car detection
-    detectCarPedestrian(data[imNumber], &isOnA, &isOnB, &isOnC, &isTrain);
+    //detectCarPedestrian(data[imNumber], &isOnA, &isOnB, &isOnC, &isTrain);
 
+    cout << "before" << endl;
     //Barrier detection
     isBarrier = detectBarrier(data[imNumber], isTrain);
-
+    cout << "after" << endl;
     //If nothing detected then must be empty
     if (!isOnA && !isOnB && !isOnC && !isBarrier && !isTrain) {
       isEmpty = true;
@@ -123,17 +124,16 @@ bool detectBarrier(Mat image, bool isTrain) {
 
   cvtColor(image, imageGray, CV_BGR2GRAY);
   bitwise_and(imageGray,maskBarrier,imageGray);
-  Canny(imageGray,contoursB,125,350);
+  Canny(imageGray,contoursB,150,400);
 
-  //lines.clear();
+  lines.clear();
   HoughLinesP(contoursB, lines, 1, PI/180, 10, 100, 20);
-  circle(imageGray, startBarrier, 2, Scalar(0),2);
-
 
   for (int i = 0; i < static_cast<int>(lines.size()); i++) {
+    line(imageGray, Point(lines[i][0], lines[i][1]), Point(lines[i][2], lines[i][3]), Scalar(0), 8);
     for (int pixelNumber = 190; pixelNumber < 285; pixelNumber++) {
       startBarrier.y = pixelNumber;
-      if (norm(startBarrier - Point(lines[i][0], lines[i][1])) < 20 && (lines[i][2] - lines[i][0]) > 25) {
+      if (norm(startBarrier - Point(lines[i][0], lines[i][1])) < 32 && (lines[i][2] - lines[i][0]) > 25) {
         return true;
       }
     }
