@@ -1,11 +1,26 @@
+/*
+* This program allow the user to create the model for the SVM for the event detection of the second program.
+*
+* To use it : programName
+*
+* WARNING :
+* Be aware that the program needs to access images/files under the following pathes : Images/path/to/image Models/path/to/model.
+* Thus the corresponding directories need to be placed at the correct location.
+*
+* This program was made using the lectures notes from Image Analysis, the provided files and the opencv documentation and examples.
+*
+* \author Benjamin Deguerre
+*/
+
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
-#include "opencv2/highgui/highgui.hpp"
-#include "opencv2/imgproc/imgproc.hpp"
+#include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/ml/ml.hpp>
 #include <iostream>
 #include <string>
 #include <filesystem>
+
+#define PI 3.14159265358979323846
 
 using namespace cv;
 using namespace std;
@@ -19,13 +34,6 @@ int main(int argc, char *argv[]) {
   cv::String trOT("Images/Training/OnTrack");
   cv::String trT("Images/Training/Train");
 
-  cv::String tB("Images/Test/Barrier");
-  cv::String tEm("Images/Test/Empty");
-  cv::String tEn("Images/Test/Entering");
-  cv::String tL("Images/Test/Leaving");
-  cv::String tOT("Images/Test/OnTrack");
-  cv::String tT("Images/Test/Train");
-
   Mat maskZoneA = imread("Images/Masks/maskZoneA.png",CV_LOAD_IMAGE_GRAYSCALE), gray, maskedImage, reshapedImage;
   vector<float> labels;
 
@@ -38,7 +46,6 @@ int main(int argc, char *argv[]) {
   Mat imTest, matTest;
 
   int rows, cols, thresh = 75;
-  float PI = 3.14;
 
   loadData(trEm, data, labels, -1);
   loadData(trOT, data, labels, -1);
@@ -60,7 +67,7 @@ int main(int argc, char *argv[]) {
   Mat labelSetTrain(labels, false);
   Mat trainingDataSetTrain(rows, cols,CV_32F);
 
-  for (size_t i = 0; i < rows; i++) {
+  for (int i = 0; i < rows; i++) {
     vectorDataTrain[i].copyTo(trainingDataSetTrain(Rect(0,i,cols,1)));
   }
 
@@ -78,21 +85,12 @@ void loadData(string path, vector<Mat> &data, vector<float> &labels, float label
   vector<cv::String> fn;
   Mat image;
 
-  for (recursive_directory_iterator i(path), end; i != end; ++i)
+  for (recursive_directory_iterator i(path), end; i != end; ++i) {
     if (!is_directory(i->path())) {
       image = cv::imread(i->path().string());
       if (image.empty()) continue;
       data.push_back(image);
       labels.push_back(labelInt);
     }
-
-  //cv::glob(path,fn,false);
-
-  //for (size_t k=0; k<fn.size(); ++k)
-  //{
-  //  image = cv::imread(fn[k]);
-  //  if (image.empty()) continue;
-  //  data.push_back(image);
-  //  labels.push_back(labelInt);
-  //}
+  }
 }
