@@ -67,7 +67,6 @@ int main(int argc, char *argv[]) {
     }
     if (isOnB) {
       cout << argv[imNumber + 1] << " : event 2" << endl;
-      
     }
     if (isOnC) {
       cout << argv[imNumber + 1] << " : event 3" << endl;
@@ -146,6 +145,10 @@ void detectCarPedestrian(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool 
   Mat maskZoneA = imread("Images/Masks/maskZoneA.png",CV_LOAD_IMAGE_GRAYSCALE);
   Mat maskZoneB = imread("Images/Masks/maskZoneB.png",CV_LOAD_IMAGE_GRAYSCALE);
   Mat maskZoneC = imread("Images/Masks/maskZoneC.png",CV_LOAD_IMAGE_GRAYSCALE);
+  Mat maskZoneB1 = imread("Images/Masks/maskZoneB1.png", CV_LOAD_IMAGE_GRAYSCALE);
+  Mat maskZoneC1 = imread("Images/Masks/maskZoneC1.png", CV_LOAD_IMAGE_GRAYSCALE);
+  Mat maskZoneB2 = imread("Images/Masks/maskZoneB2.png", CV_LOAD_IMAGE_GRAYSCALE);
+  Mat maskZoneC2 = imread("Images/Masks/maskZoneC2.png", CV_LOAD_IMAGE_GRAYSCALE);
   Mat maskTrain = imread("Images/Masks/maskTrain.png", CV_LOAD_IMAGE_GRAYSCALE);
   Mat maskPedestrian = imread("Images/Masks/maskPedestrian.png", CV_LOAD_IMAGE_GRAYSCALE);
   Mat result(image.size(), CV_8U, Scalar(255));
@@ -197,7 +200,7 @@ void detectCarPedestrian(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool 
   carGrayWhiteTresholded += maskLettersInv;
 
   bitwise_and(carGrayWhiteTresholded, carGrayTresholded, thresholdedImage);
-
+ 
   morphologyEx(thresholdedImage, thresholdedImage, MORPH_OPEN, element);
 
   //Apply the canny algorithm
@@ -245,6 +248,26 @@ void detectCarPedestrian(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool 
               }
             }
           }
+          if (!currentB && !currentC) {
+            for (size_t j = 0; j < poly.size(); j++) {
+              if (maskZoneB1.at<uchar>(poly[j].y, poly[j].x) == 255) {
+                *isOnB = true;
+                currentB = true;
+              }
+              if (maskZoneC2.at<uchar>(poly[j].y, poly[j].x) == 255) {
+                *isOnC = true;
+                currentC = true;
+              }
+              if (maskZoneC1.at<uchar>(poly[j].y, poly[j].x) == 255 && !currentB) {
+                *isOnC = true;
+                currentC = true;
+              }
+              if (maskZoneB2.at<uchar>(poly[j].y, poly[j].x) == 255 && !currentC) {
+                *isOnB = true;
+                currentB = true;
+              }
+            }
+          }
         } else {
           if (maskTrain.at<uchar>(point.y, point.x) == 255 && !*isOnC) {
             *isOnB = true;
@@ -279,6 +302,8 @@ void detectCarPedestrian(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool 
       contourPedestrianFinal.pop_back();
     }
   }
+  //drawContours(thresholdedImage, contoursCarFinal, -1, Scalar(150),5);
+  //imshow("thresholdedImage", thresholdedImage);
 }
 
 Mat getThresholdedImage(Mat image, int lowThreshold, int highThreshold, double sigma) {
