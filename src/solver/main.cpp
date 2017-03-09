@@ -23,7 +23,7 @@ int main(int argc, char *argv[]) {
 
   bool isEmpty, isOnA, isOnB, isOnC, isBarrier, isTrain;
 
-  int number = 0;
+  double number = 0;
 
   size_t numberOfImage;
 
@@ -49,13 +49,10 @@ int main(int argc, char *argv[]) {
     std::cout << "New Image :" << std::endl;
 
     //Train Detection
-    cout << "before" << endl;
     isTrain = detectTrain(data[imNumber]);
 
-    cout << "before" << endl;
     //Car detection
     detectCarPedestrian(data[imNumber], &isOnA, &isOnB, &isOnC, &isTrain);
-    cout << "after" << endl;
 
     //Barrier detection
     isBarrier = detectBarrier(data[imNumber], isTrain);
@@ -70,20 +67,18 @@ int main(int argc, char *argv[]) {
     }
     if (isOnB) {
       cout << argv[imNumber + 1] << " : event 2" << endl;
+      
     }
     if (isOnC) {
       cout << argv[imNumber + 1] << " : event 3" << endl;
+      number++;
     }
     if (isBarrier) {
       cout << argv[imNumber + 1] << " : event 4" << endl;
     }
     if (isTrain) {
       cout << argv[imNumber + 1] << " : event 5" << endl;
-      number++;
     }
-
-    imshow("image", data[imNumber]);
-    waitKey(0);
   }
   std::cout << "well found percentage :" << number / numberOfImage * 100 << std::endl;
   std::cout << "detected :" << number << std::endl;
@@ -166,6 +161,7 @@ void detectCarPedestrian(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool 
   vector<vector<Point>>::iterator cIt;
   vector<Point> momentsCars;
 
+  bool currentB, currentC;
   float radius;
   Point2f center;
   Point point;
@@ -218,6 +214,8 @@ void detectCarPedestrian(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool 
   }
 
   for (size_t i = 0; i < contoursCarSelected.size(); i++) {
+    currentB = false;
+    currentC = false;
     convexHull(Mat(contoursCarSelected[i]),poly);
     contoursCarFinal.push_back(poly);
     Moments mom= moments(Mat(poly));
@@ -226,19 +224,28 @@ void detectCarPedestrian(Mat image, bool *isOnA, bool *isOnB, bool *isOnC, bool 
       if (((PI *radius *radius) / contourArea(poly)) < 6 && contourArea(poly) > 800) {
         point = Point(static_cast<int>(mom.m10/mom.m00), static_cast<int>(mom.m01/mom.m00));
         if (!*isTrain) {
-          if (maskZoneB.at<uchar>(point.y, point.x) == 255 && !*isOnB) {
+          if (maskZoneB.at<uchar>(point.y, point.x) == 255 && !currentB) {
             *isOnB = true;
+            currentB = true;
           }
 
           if (maskZoneA.at<uchar>(point.y,point.x) == 255 && !*isOnA) {
             *isOnA = true;
           }
 
-          if (maskZoneC.at<uchar>(point.y,point.x) == 255 && !*isOnC) {
+          if (maskZoneC.at<uchar>(point.y,point.x) == 255 && !currentC) {
             *isOnC = true;
+            currentC = true;
           }
-        }
-        else {
+
+          if (!*isOnA && !*isTrain && (currentB || currentC)) {
+            for (size_t j = 0; j < poly.size(); j++) {
+              if (maskZoneA.at<uchar>(poly[j].y, poly[j].x) == 255) {
+                *isOnA = true;
+              }
+            }
+          }
+        } else {
           if (maskTrain.at<uchar>(point.y, point.x) == 255 && !*isOnC) {
             *isOnB = true;
           }
